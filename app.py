@@ -17,6 +17,7 @@ TG_CHAT_ID   = os.environ.get('TG_CHAT_ID') or ""      # Telegram Chat ID,可选
 TG_BOT_TOKEN = os.environ.get('TG_BOT_TOKEN') or ""    # Telegram Bot Token,可选    
 
 BASE_URL = "https://dash.hidencloud.com"
+SERVER_ID = (os.environ.get('SERVER_ID') or "238280").strip()  # 固定 Server ID；留空则自动从 dashboard 获取
 LOGIN_URL = f"{BASE_URL}/auth/login"
 
 # --- 代理配置（由工作流 shell 脚本写入 $GITHUB_ENV）---
@@ -512,7 +513,8 @@ def get_server_id(page):
             return server_id
 
         # 方案2: 从 span 标签中提取 #数字 (如 "Free Server #218079")；过滤全 0 的误匹配
-        matches = [m for m in re.findall(r'#(\d{4,})', html) if set(m) != {'0'}]
+        # 只匹配 "Server #123456" 这类文本，避免误把 CSS 颜色值（如 #242344）当成 ID
+        matches = [m for m in re.findall(r'(?:Server|Service)\s*#(\d{4,})', html, re.IGNORECASE) if set(m) != {'0'}]
         if matches:
             server_id = matches[0]
             log(f"✅ 从文本 #号中获取到 Server ID: {server_id}")
@@ -680,7 +682,9 @@ def main():
                 sys.exit(1)
 
             # 登录成功后，自动获取 Server ID
-            server_id = get_server_id(page)
+            server_id = SERVER_ID or get_server_id(page)
+            if SERVER_ID:
+                log(f"📌 使用固定 Server ID: {SERVER_ID}")
             if not server_id:
                 log("❌ 无法获取 Server ID，退出。")
                 sys.exit(1)
